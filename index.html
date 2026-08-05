@@ -145,7 +145,7 @@
   .alert .d b{color:var(--text); font-weight:600;}
 
   /* ===== KPI GRID ===== */
-  .kpis{display:grid; grid-template-columns:repeat(4,1fr); gap:16px;}
+  .kpis{display:grid; grid-template-columns:repeat(5,1fr); gap:16px;}
   .kpi{
     background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:20px 22px;
     transition:transform .15s, border-color .15s;
@@ -159,6 +159,7 @@
   .kpi.green .kpi-icon{background:rgba(16,185,129,0.15); color:var(--green);}
   .kpi.blue .kpi-icon{background:rgba(99,102,241,0.15); color:var(--indigo-lt);}
   .kpi.amber .kpi-icon{background:rgba(245,158,11,0.15); color:var(--amber);}
+  .kpi.rose .kpi-icon{background:rgba(244,63,94,0.15); color:var(--rose);}
   .kpi.cyan .kpi-icon{background:rgba(34,211,238,0.15); color:var(--cyan);}
 
   /* ===== CARDS / CHARTS ===== */
@@ -214,6 +215,31 @@
   .pill.andamento{background:rgba(99,102,241,0.15); color:#a5b4fc;}
   .pill.semstatus{background:rgba(244,63,94,0.15); color:#fda4af;}
 
+  /* editable status select styled as a pill */
+  select.status-select{
+    font-family:var(--inter); font-size:10.5px; font-weight:700; padding:4px 8px 4px 10px;
+    border-radius:20px; border:1px solid transparent; cursor:pointer; appearance:none;
+    -webkit-appearance:none; background-repeat:no-repeat; background-position:right 6px center;
+    background-size:9px; padding-right:22px;
+  }
+  select.status-select.concluida{background-color:rgba(16,185,129,0.15); color:#6ee7b7;}
+  select.status-select.andamento{background-color:rgba(99,102,241,0.15); color:#a5b4fc;}
+  select.status-select:hover{border-color:currentColor;}
+  select.status-select:focus{outline:none; border-color:var(--indigo);}
+  select.status-select option{background:#161d3d; color:#eef0fa;}
+  .edited-dot{
+    display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--cyan);
+    margin-left:6px; vertical-align:middle; box-shadow:0 0 6px var(--cyan);
+  }
+  .btn-reset{
+    background:var(--panel2); border:1px solid var(--border); color:var(--muted);
+    padding:9px 14px; border-radius:9px; font-size:12px; font-weight:600; cursor:pointer;
+    font-family:var(--inter); white-space:nowrap; transition:all .15s;
+  }
+  .btn-reset:hover{color:var(--text); border-color:var(--rose); background:rgba(244,63,94,0.08);}
+  .btn-reset:disabled{opacity:0.4; cursor:not-allowed;}
+  .edit-hint{color:var(--muted2); font-size:11.5px; margin-top:10px; display:flex; align-items:center; gap:6px;}
+
   footer{text-align:center; color:var(--muted2); font-size:11.5px; margin-top:20px; padding-top:24px; border-top:1px solid var(--border-soft);}
   footer b{color:var(--muted);}
 
@@ -240,6 +266,7 @@
       <a href="#riscos">Riscos</a>
       <a href="#acoes">Ações</a>
       <a href="#insights">Insights</a>
+      <a href="#sugestoes">Sugestões</a>
     </div>
     <div class="nav-date" id="nav-date">Ref. 04/08/2026</div>
   </div>
@@ -321,8 +348,8 @@
     <div class="section-head">
       <div>
         <div class="tag">Execução</div>
-        <h2>Ações com maior desvio de prazo</h2>
-        <p>Tempo decorrido entre início e término frente ao prazo planejado, para ações ainda em andamento — quanto maior a barra, maior o desvio.</p>
+        <h2>Ações atrasadas e remarcadas</h2>
+        <p>Estas ações romperam o prazo originalmente planejado — mas já têm <b style="color:var(--text)">nova data de implementação validada</b> refletida no campo "Término". Quanto maior a barra, maior o desvio em relação ao prazo original.</p>
       </div>
     </div>
     <div class="card">
@@ -344,7 +371,9 @@
         <select id="fStatus"><option value="">Todos os status</option></select>
         <select id="fTipo"><option value="">Todos os tipos</option></select>
         <input type="text" id="fSearch" placeholder="Buscar por palavra-chave...">
+        <button class="btn-reset" id="resetOverridesBtn" title="Restaurar todos os status ao valor original da planilha">Restaurar status originais</button>
       </div>
+      <div class="edit-hint">💡 Clique no status de qualquer ação na tabela para atualizá-lo direto aqui — os cards, gráficos e insights recalculam na hora.</div>
       <div class="table-scroll">
         <table>
           <thead>
@@ -367,6 +396,17 @@
     <div class="insights-grid" id="insightsList"></div>
   </div>
 
+  <div class="section" id="sugestoes" style="padding-bottom:8px;">
+    <div class="section-head">
+      <div>
+        <div class="tag">Recomendações</div>
+        <h2>Sugestões para fortalecer a apresentação</h2>
+        <p>Ideias práticas para deixar a reunião mais persuasiva e orientada a decisão, além dos dados já mapeados.</p>
+      </div>
+    </div>
+    <div class="insights-grid" id="suggestionsList"></div>
+  </div>
+
   <footer>Painel gerado a partir de <b>PLANO_ACAO_2026_INFORMATICA_Atualizada.xlsx</b> · Setor Informática · Grupo Martins</footer>
 </div>
 
@@ -381,154 +421,194 @@ function unitColor(u){ return UNIT_COLORS[u] || '#8892c0'; }
 function statusPillClass(s){ if(s==='Concluída') return 'concluida'; if(s==='Em andamento') return 'andamento'; return 'semstatus'; }
 function fmtDate(iso){ if(!iso) return '—'; return iso.split('-').reverse().join('/'); }
 
-// ===== Aggregates =====
-const total = PLANO_DATA.length;
-const concluida = PLANO_DATA.filter(d=>d.status==='Concluída').length;
-const andamento = PLANO_DATA.filter(d=>d.status==='Em andamento').length;
-const semStatus = PLANO_DATA.filter(d=>d.status!=='Concluída' && d.status!=='Em andamento').length;
-const overdue = PLANO_DATA.filter(d=>d.status!=='Concluída' && d.days_to_deadline!==null && d.days_to_deadline<0).length;
-const pctConcluida = Math.round(concluida/total*100);
-const pctAndamento = Math.round(andamento/total*100);
+// ===== Status overrides (persisted locally in the browser) =====
+const STORAGE_KEY = 'planoTI2026_status_overrides';
+const ORIGINAL_STATUS = {};
+PLANO_DATA.forEach(d => { ORIGINAL_STATUS[d.num] = d.status; });
 
-document.getElementById('nav-date').textContent = 'Ref. 04/08/2026';
-
-// hero stats
-document.getElementById('hero-stats').innerHTML = `
-  <div class="hero-stat"><b>${total}</b><span>Ações mapeadas</span></div>
-  <div class="hero-stat"><b>${new Set(PLANO_DATA.map(d=>d.empresa)).size}</b><span>Unidades envolvidas</span></div>
-  <div class="hero-stat"><b>${overdue}</b><span>Vencidas s/ conclusão</span></div>
-`;
-
-// gauge
-const R = 80, C = 2*Math.PI*R;
-const concluidaLen = C * (concluida/total);
-const andamentoLen = C * (andamento/total);
-const gc = document.getElementById('gaugeConcluida');
-const ga = document.getElementById('gaugeAndamento');
-gc.setAttribute('stroke-dasharray', `${concluidaLen} ${C}`);
-ga.setAttribute('stroke-dasharray', `${andamentoLen} ${C}`);
-ga.setAttribute('stroke-dashoffset', -concluidaLen);
-document.getElementById('gaugePct').textContent = pctConcluida + '%';
-
-// status alert (dynamic based on data quality)
-const typoCount = PLANO_DATA.filter(d=>d.date_typo).length;
-if(semStatus>0 || overdue>0 || typoCount>0){
-  document.getElementById('statusAlert').outerHTML = `
-    <div class="alert warn" id="statusAlert">
-      <div class="ic">⚠️</div>
-      <div>
-        <div class="t">Pontos de atenção antes da reunião</div>
-        <div class="d">
-          ${semStatus>0 ? `<b>${semStatus} ação(ões) sem status</b> preenchido. ` : ''}
-          ${overdue>0 ? `<b>${overdue} ação(ões) vencida(s)</b> sem conclusão registrada. ` : ''}
-          ${typoCount>0 ? `<b>${typoCount} registro(s)</b> com datas inconsistentes.` : ''}
-        </div>
-      </div>
-    </div>`;
+function loadOverrides(){
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
+  catch(e){ return {}; }
 }
+function saveOverrides(map){
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(map)); } catch(e){}
+}
+let statusOverrides = loadOverrides();
+Object.keys(statusOverrides).forEach(numStr => {
+  const item = PLANO_DATA.find(d => d.num === Number(numStr));
+  if(item) item.status = statusOverrides[numStr];
+});
 
-// KPI cards
-const kpis = [
-  {icon:'✓', cls:'green', label:'Concluídas', value:pctConcluida+'%', sub:concluida+' de '+total+' ações'},
-  {icon:'◷', cls:'blue', label:'Em Andamento', value:pctAndamento+'%', sub:andamento+' ações ativas'},
-  {icon:'⚡', cls:'cyan', label:'Automatização', value:PLANO_DATA.filter(d=>d.acao==='AUTOMATIZAÇÃO').length, sub:'do total de 29 ações'},
-  {icon:'◎', cls:'amber', label:'Unidade Líder', value:'HOTEL', sub:'10 ações · 34% do plano'},
-];
-document.getElementById('kpi-strip').innerHTML = kpis.map(k=>`
-  <div class="kpi ${k.cls}">
-    <div class="kpi-top"><div class="kpi-icon">${k.icon}</div></div>
-    <div class="kpi-label">${k.label}</div>
-    <div class="kpi-value">${k.value}</div>
-    <div class="kpi-sub">${k.sub}</div>
-  </div>
-`).join('');
+const STATUS_OPTIONS = ['Em andamento', 'Concluída'];
 
-// ===== Charts =====
+// ===== Chart instances (destroyed & recreated on every render) =====
+let empresaChartInst=null, stackChartInst=null, statusChartInst=null, tipoChartInst=null;
 Chart.defaults.font.family = "'Inter', sans-serif";
 
-// Empresa bar
-const empresaCount = {};
-PLANO_DATA.forEach(d=>{empresaCount[d.empresa]=(empresaCount[d.empresa]||0)+1;});
-const empresaLabels = Object.keys(empresaCount).sort((a,b)=>empresaCount[b]-empresaCount[a]);
-new Chart(document.getElementById('empresaChart'), {
-  type:'bar',
-  data:{labels:empresaLabels, datasets:[{data:empresaLabels.map(e=>empresaCount[e]), backgroundColor:empresaLabels.map(unitColor), borderRadius:7, maxBarThickness:32}]},
-  options:{responsive:true, maintainAspectRatio:false, indexAxis:'y',
-    plugins:{legend:{display:false}},
-    scales:{x:{ticks:{color:'#8892c0', stepSize:2}, grid:{color:'#1a2144'}}, y:{ticks:{color:'#eef0fa', font:{weight:600, size:11.5}}, grid:{display:false}}}
-  }
-});
+function computeAggregates(){
+  const total = PLANO_DATA.length;
+  const concluida = PLANO_DATA.filter(d=>d.status==='Concluída').length;
+  const andamento = PLANO_DATA.filter(d=>d.status==='Em andamento').length;
+  const semStatus = PLANO_DATA.filter(d=>d.status!=='Concluída' && d.status!=='Em andamento').length;
+  const pctConcluida = Math.round(concluida/total*100);
+  const pctAndamento = Math.round(andamento/total*100);
+  const atrasadasList = PLANO_DATA.filter(d => d.overrun && d.overrun >= 4);
+  const typoCount = PLANO_DATA.filter(d=>d.date_typo).length;
+  const editedCount = Object.keys(statusOverrides).length;
+  return {total, concluida, andamento, semStatus, pctConcluida, pctAndamento, atrasadasList, typoCount, editedCount};
+}
 
-// Stacked status by unit
-const stStatuses = ['Concluída','Em andamento'];
-const stColors = {'Concluída':'#10b981','Em andamento':'#6366f1'};
-new Chart(document.getElementById('stackChart'), {
-  type:'bar',
-  data:{
-    labels:empresaLabels,
-    datasets:stStatuses.map(s=>({
-      label:s, backgroundColor:stColors[s], borderRadius:4, maxBarThickness:26,
-      data:empresaLabels.map(e=>PLANO_DATA.filter(d=>d.empresa===e && d.status===s).length)
-    }))
-  },
-  options:{responsive:true, maintainAspectRatio:false,
-    plugins:{legend:{position:'bottom', labels:{color:'#8892c0', font:{size:11}, boxWidth:10, padding:14}}},
-    scales:{x:{stacked:true, ticks:{color:'#8892c0', font:{size:11}}, grid:{display:false}}, y:{stacked:true, ticks:{color:'#8892c0', stepSize:2}, grid:{color:'#1a2144'}}}
-  }
-});
-
-// Status donut
-new Chart(document.getElementById('statusChart'), {
-  type:'doughnut',
-  data:{labels:['Concluída','Em andamento'], datasets:[{data:[concluida,andamento], backgroundColor:['#10b981','#6366f1'], borderColor:'#111731', borderWidth:4}]},
-  options:{responsive:true, maintainAspectRatio:false, cutout:'70%',
-    plugins:{legend:{position:'bottom', labels:{color:'#8892c0', font:{size:12}, padding:18}}}
-  }
-});
-
-// Tipo bar
-const tipoCount = {};
-PLANO_DATA.forEach(d=>{tipoCount[d.acao]=(tipoCount[d.acao]||0)+1;});
-const tipoLabels = Object.keys(tipoCount).sort((a,b)=>tipoCount[b]-tipoCount[a]);
-new Chart(document.getElementById('tipoChart'), {
-  type:'bar',
-  data:{labels:tipoLabels, datasets:[{data:tipoLabels.map(t=>tipoCount[t]), backgroundColor:['#6366f1','#22d3ee','#a78bfa','#f59e0b'], borderRadius:8, maxBarThickness:50}]},
-  options:{responsive:true, maintainAspectRatio:false,
-    plugins:{legend:{display:false}},
-    scales:{x:{ticks:{color:'#8892c0', font:{size:10.5}}, grid:{display:false}}, y:{ticks:{color:'#8892c0', stepSize:2}, grid:{color:'#1a2144'}}}
-  }
-});
-
-// ===== Risk list =====
-const riskItems = PLANO_DATA.filter(d=>d.status==='Em andamento' && d.overrun).sort((a,b)=>b.overrun-a.overrun).slice(0,8);
-const maxOverrun = Math.max(...riskItems.map(d=>d.overrun), 1);
-document.getElementById('riskList').innerHTML = riskItems.map(d=>{
-  const tag = d.overrun>=4 ? 'high' : 'med';
-  const barColor = d.overrun>=4 ? '#f43f5e' : '#f59e0b';
-  const pct = Math.min(100, (d.overrun/maxOverrun)*100);
-  return `
-    <div class="risk-item">
-      <div style="flex:1; min-width:0;">
-        <div class="ri-title">Nº${d.num} · ${d.desc.length>60?d.desc.slice(0,60)+'…':d.desc}</div>
-        <div class="ri-sub"><span class="unit-chip" style="background:${unitColor(d.empresa)}22; color:${unitColor(d.empresa)}">${d.empresa}</span> &nbsp;${d.acao} · vence ${fmtDate(d.termino)}</div>
-        <div class="risk-bar-bg"><div class="risk-bar" style="width:${pct}%; background:${barColor}"></div></div>
-      </div>
-      <div class="risk-tag ${tag}">${d.overrun}×</div>
-    </div>
+function renderHero(agg){
+  document.getElementById('hero-stats').innerHTML = `
+    <div class="hero-stat"><b>${agg.total}</b><span>Ações mapeadas</span></div>
+    <div class="hero-stat"><b>${new Set(PLANO_DATA.map(d=>d.empresa)).size}</b><span>Unidades envolvidas</span></div>
+    <div class="hero-stat"><b>${agg.atrasadasList.length}</b><span>Remarcadas c/ nova data</span></div>
   `;
-}).join('');
+}
 
-// ===== Table =====
+function renderGauge(agg){
+  const R = 80, C = 2*Math.PI*R;
+  const concluidaLen = C * (agg.concluida/agg.total);
+  const andamentoLen = C * (agg.andamento/agg.total);
+  const gc = document.getElementById('gaugeConcluida');
+  const ga = document.getElementById('gaugeAndamento');
+  gc.setAttribute('stroke-dasharray', `${concluidaLen} ${C}`);
+  ga.setAttribute('stroke-dasharray', `${andamentoLen} ${C}`);
+  ga.setAttribute('stroke-dashoffset', -concluidaLen);
+  document.getElementById('gaugePct').textContent = agg.pctConcluida + '%';
+}
+
+function renderAlert(agg){
+  const el = document.getElementById('statusAlert');
+  if(agg.semStatus>0 || agg.typoCount>0 || agg.editedCount>0){
+    el.outerHTML = `
+      <div class="alert warn" id="statusAlert">
+        <div class="ic">⚠️</div>
+        <div>
+          <div class="t">Pontos de atenção antes da reunião</div>
+          <div class="d">
+            ${agg.semStatus>0 ? `<b>${agg.semStatus} ação(ões) sem status</b> preenchido. ` : ''}
+            ${agg.typoCount>0 ? `<b>${agg.typoCount} registro(s)</b> com datas inconsistentes. ` : ''}
+            ${agg.editedCount>0 ? `<b>${agg.editedCount} status alterado(s) manualmente</b> neste painel — use "Restaurar status originais" para desfazer.` : ''}
+          </div>
+        </div>
+      </div>`;
+  } else {
+    el.outerHTML = `
+      <div class="alert" id="statusAlert">
+        <div class="ic">✅</div>
+        <div>
+          <div class="t">Plano saudável — correções aplicadas</div>
+          <div class="d">Todas as ações têm <b>status preenchido</b> e nenhuma está com prazo vencido sem justificativa.</div>
+        </div>
+      </div>`;
+  }
+}
+
+function renderKPIs(agg){
+  const kpis = [
+    {icon:'✓', cls:'green', label:'Concluídas', value:agg.pctConcluida+'%', sub:agg.concluida+' de '+agg.total+' ações'},
+    {icon:'◷', cls:'blue', label:'Em Andamento', value:agg.pctAndamento+'%', sub:agg.andamento+' ações ativas'},
+    {icon:'⏱', cls:'rose', label:'Atrasadas / Remarcadas', value:agg.atrasadasList.length, sub:'nova data de implementação validada'},
+    {icon:'⚡', cls:'cyan', label:'Automatização', value:PLANO_DATA.filter(d=>d.acao==='AUTOMATIZAÇÃO').length, sub:'do total de 29 ações'},
+    {icon:'◎', cls:'amber', label:'Unidade Líder', value:'HOTEL', sub:'10 ações · 34% do plano'},
+  ];
+  document.getElementById('kpi-strip').innerHTML = kpis.map(k=>`
+    <div class="kpi ${k.cls}">
+      <div class="kpi-top"><div class="kpi-icon">${k.icon}</div></div>
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value">${k.value}</div>
+      <div class="kpi-sub">${k.sub}</div>
+    </div>
+  `).join('');
+}
+
+function renderCharts(agg){
+  [empresaChartInst, stackChartInst, statusChartInst, tipoChartInst].forEach(c=>{ if(c) c.destroy(); });
+
+  const empresaCount = {};
+  PLANO_DATA.forEach(d=>{empresaCount[d.empresa]=(empresaCount[d.empresa]||0)+1;});
+  const empresaLabels = Object.keys(empresaCount).sort((a,b)=>empresaCount[b]-empresaCount[a]);
+  empresaChartInst = new Chart(document.getElementById('empresaChart'), {
+    type:'bar',
+    data:{labels:empresaLabels, datasets:[{data:empresaLabels.map(e=>empresaCount[e]), backgroundColor:empresaLabels.map(unitColor), borderRadius:7, maxBarThickness:32}]},
+    options:{responsive:true, maintainAspectRatio:false, indexAxis:'y',
+      plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#8892c0', stepSize:2}, grid:{color:'#1a2144'}}, y:{ticks:{color:'#eef0fa', font:{weight:600, size:11.5}}, grid:{display:false}}}
+    }
+  });
+
+  const stStatuses = ['Concluída','Em andamento'];
+  const stColors = {'Concluída':'#10b981','Em andamento':'#6366f1'};
+  stackChartInst = new Chart(document.getElementById('stackChart'), {
+    type:'bar',
+    data:{
+      labels:empresaLabels,
+      datasets:stStatuses.map(s=>({
+        label:s, backgroundColor:stColors[s], borderRadius:4, maxBarThickness:26,
+        data:empresaLabels.map(e=>PLANO_DATA.filter(d=>d.empresa===e && d.status===s).length)
+      }))
+    },
+    options:{responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom', labels:{color:'#8892c0', font:{size:11}, boxWidth:10, padding:14}}},
+      scales:{x:{stacked:true, ticks:{color:'#8892c0', font:{size:11}}, grid:{display:false}}, y:{stacked:true, ticks:{color:'#8892c0', stepSize:2}, grid:{color:'#1a2144'}}}
+    }
+  });
+
+  statusChartInst = new Chart(document.getElementById('statusChart'), {
+    type:'doughnut',
+    data:{labels:['Concluída','Em andamento'], datasets:[{data:[agg.concluida,agg.andamento], backgroundColor:['#10b981','#6366f1'], borderColor:'#111731', borderWidth:4}]},
+    options:{responsive:true, maintainAspectRatio:false, cutout:'70%',
+      plugins:{legend:{position:'bottom', labels:{color:'#8892c0', font:{size:12}, padding:18}}}
+    }
+  });
+
+  const tipoCount = {};
+  PLANO_DATA.forEach(d=>{tipoCount[d.acao]=(tipoCount[d.acao]||0)+1;});
+  const tipoLabels = Object.keys(tipoCount).sort((a,b)=>tipoCount[b]-tipoCount[a]);
+  tipoChartInst = new Chart(document.getElementById('tipoChart'), {
+    type:'bar',
+    data:{labels:tipoLabels, datasets:[{data:tipoLabels.map(t=>tipoCount[t]), backgroundColor:['#6366f1','#22d3ee','#a78bfa','#f59e0b'], borderRadius:8, maxBarThickness:50}]},
+    options:{responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#8892c0', font:{size:10.5}}, grid:{display:false}}, y:{ticks:{color:'#8892c0', stepSize:2}, grid:{color:'#1a2144'}}}
+    }
+  });
+}
+
+function renderRiskList(agg){
+  const riskItems = [...agg.atrasadasList].sort((a,b)=>b.overrun-a.overrun);
+  const maxOverrun = Math.max(...riskItems.map(d=>d.overrun), 1);
+  document.getElementById('riskList').innerHTML = riskItems.map(d=>{
+    const tag = d.overrun>=8 ? 'high' : 'med';
+    const barColor = d.overrun>=8 ? '#f43f5e' : '#f59e0b';
+    const pct = Math.min(100, (d.overrun/maxOverrun)*100);
+    return `
+      <div class="risk-item">
+        <div style="flex:1; min-width:0;">
+          <div class="ri-title">Nº${d.num} · ${d.desc.length>60?d.desc.slice(0,60)+'…':d.desc}</div>
+          <div class="ri-sub"><span class="unit-chip" style="background:${unitColor(d.empresa)}22; color:${unitColor(d.empresa)}">${d.empresa}</span> &nbsp;${d.acao} · <span class="pill ${statusPillClass(d.status)}" style="margin:0 2px;">${d.status}</span> · nova data validada: ${fmtDate(d.termino)}</div>
+          <div class="risk-bar-bg"><div class="risk-bar" style="width:${pct}%; background:${barColor}"></div></div>
+        </div>
+        <div class="risk-tag ${tag}">${d.overrun}×</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ===== Table (with inline, clickable status editing) =====
 const fEmpresa = document.getElementById('fEmpresa'), fStatus = document.getElementById('fStatus'),
       fTipo = document.getElementById('fTipo'), fSearch = document.getElementById('fSearch');
 [...new Set(PLANO_DATA.map(d=>d.empresa))].sort().forEach(e=>fEmpresa.innerHTML += `<option value="${e}">${e}</option>`);
-[...new Set(PLANO_DATA.map(d=>d.status))].sort().forEach(s=>fStatus.innerHTML += `<option value="${s}">${s}</option>`);
+STATUS_OPTIONS.forEach(s=>fStatus.innerHTML += `<option value="${s}">${s}</option>`);
 [...new Set(PLANO_DATA.map(d=>d.acao))].sort().forEach(t=>fTipo.innerHTML += `<option value="${t}">${t}</option>`);
 
 function renderTable(){
   const ve=fEmpresa.value, vs=fStatus.value, vt=fTipo.value, vq=fSearch.value.toLowerCase();
   const rows = PLANO_DATA.filter(d=>(!ve||d.empresa===ve)&&(!vs||d.status===vs)&&(!vt||d.acao===vt)&&(!vq||d.desc.toLowerCase().includes(vq)));
-  document.getElementById('tableBody').innerHTML = rows.map(d=>`
+  document.getElementById('tableBody').innerHTML = rows.map(d=>{
+    const isEdited = Object.prototype.hasOwnProperty.call(statusOverrides, String(d.num));
+    return `
     <tr>
       <td class="num-cell">${String(d.num).padStart(2,'0')}</td>
       <td><span class="unit-chip" style="background:${unitColor(d.empresa)}22; color:${unitColor(d.empresa)}">${d.empresa}</span></td>
@@ -536,23 +616,92 @@ function renderTable(){
       <td class="desc-cell">${d.desc}</td>
       <td>${d.resp || '—'}</td>
       <td class="num-cell">${fmtDate(d.termino)}</td>
-      <td><span class="pill ${statusPillClass(d.status)}">${d.status}</span></td>
+      <td>
+        <select class="status-select ${statusPillClass(d.status)}" data-num="${d.num}" title="Clique para alterar o status desta ação">
+          ${STATUS_OPTIONS.map(s=>`<option value="${s}" ${s===d.status?'selected':''}>${s}</option>`).join('')}
+        </select>${isEdited ? '<span class="edited-dot" title="Status alterado manualmente"></span>' : ''}
+      </td>
     </tr>
-  `).join('') || `<tr><td colspan="7" style="text-align:center; color:#8892c0; padding:28px;">Nenhuma ação encontrada.</td></tr>`;
+  `;
+  }).join('') || `<tr><td colspan="7" style="text-align:center; color:#8892c0; padding:28px;">Nenhuma ação encontrada.</td></tr>`;
 }
 [fEmpresa,fStatus,fTipo,fSearch].forEach(el=>el.addEventListener('input', renderTable));
-renderTable();
+
+// Event delegation: handles status changes for any row, even after re-render
+document.getElementById('tableBody').addEventListener('change', e=>{
+  if(!e.target.classList.contains('status-select')) return;
+  const num = Number(e.target.dataset.num);
+  const newStatus = e.target.value;
+  const item = PLANO_DATA.find(d=>d.num===num);
+  if(!item) return;
+  item.status = newStatus;
+  if(newStatus === ORIGINAL_STATUS[num]){
+    delete statusOverrides[String(num)];
+  } else {
+    statusOverrides[String(num)] = newStatus;
+  }
+  saveOverrides(statusOverrides);
+  renderAll();
+});
+
+document.getElementById('resetOverridesBtn').addEventListener('click', ()=>{
+  statusOverrides = {};
+  saveOverrides(statusOverrides);
+  PLANO_DATA.forEach(d=>{ d.status = ORIGINAL_STATUS[d.num]; });
+  renderAll();
+});
 
 // ===== Insights =====
-const insights = [
-  `<b>${pctConcluida}% de conclusão</b> em um plano de 29 ações é um número forte para abrir a apresentação — reforça execução consistente da área de TI em 2025/2026.`,
-  `<b>Hotel Privê concentra 34% das ações</b> (10 de 29) — maior volume de demanda de TI do grupo, à frente de Martins Import (7) e Martins Auto Service (4).`,
-  `<b>62% das ações são de Automatização</b> — a narrativa da apresentação pode girar em torno de "TI como motor de automação", não apenas suporte técnico.`,
-  `Nenhuma ação está <b>sem status</b> ou com prazo vencido sem justificativa — plano em situação saudável para reportar à diretoria.`,
-  `<b>5 ações em andamento romperam o prazo planejado em 4× ou mais</b> — vale uma frase de contexto: projetos multi-fase com dependência de fornecedor/homologação costumam estourar o campo "prazo", que mede apenas a etapa ativa.`,
-  `Nenhuma ação está classificada como <b>"Cancelada"</b> — bom indicador de planejamento realista na entrada do plano.`,
-];
-document.getElementById('insightsList').innerHTML = insights.map((t,i)=>`<div class="insight"><div class="n">${String(i+1).padStart(2,'0')}</div><div class="t">${t}</div></div>`).join('');
+function renderInsights(agg){
+  const insights = [
+    `<b>${agg.pctConcluida}% de conclusão</b> em um plano de 29 ações é um número forte para abrir a apresentação — reforça execução consistente da área de TI em 2025/2026.`,
+    `<b>Hotel Privê concentra 34% das ações</b> (10 de 29) — maior volume de demanda de TI do grupo, à frente de Martins Import (7) e Martins Auto Service (4).`,
+    `<b>62% das ações são de Automatização</b> — a narrativa da apresentação pode girar em torno de "TI como motor de automação", não apenas suporte técnico.`,
+    agg.semStatus>0
+      ? `<b>${agg.semStatus} ação(ões) ainda sem status</b> preenchido — vale atualizar antes de projetar o painel na reunião.`
+      : `Nenhuma ação está <b>sem status</b> ou com prazo vencido sem justificativa — plano em situação saudável para reportar à diretoria.`,
+    `<b>${agg.atrasadasList.length} ações romperam o prazo originalmente planejado</b>, mas todas já têm nova data de implementação validada — vale uma frase de contexto: projetos multi-fase com dependência de fornecedor/homologação costumam estourar o campo "prazo", que mede apenas a etapa ativa.`,
+    `Nenhuma ação está classificada como <b>"Cancelada"</b> — bom indicador de planejamento realista na entrada do plano.`,
+  ];
+  document.getElementById('insightsList').innerHTML = insights.map((t,i)=>`<div class="insight"><div class="n">${String(i+1).padStart(2,'0')}</div><div class="t">${t}</div></div>`).join('');
+}
+
+// ===== Suggestions for strengthening the presentation =====
+function renderSuggestions(agg){
+  const proximasEntregas = PLANO_DATA
+    .filter(d=>d.status==='Em andamento' && d.days_to_deadline!==null)
+    .sort((a,b)=>a.days_to_deadline-b.days_to_deadline)
+    .slice(0,3)
+    .map(d=>`${d.empresa} · ${d.desc.length>40?d.desc.slice(0,40)+'…':d.desc} (${fmtDate(d.termino)})`)
+    .join('; ');
+
+  const suggestions = [
+    `<b>Abra com o número, não com a planilha.</b> Comece pelo gauge de progresso e pela frase "${agg.pctConcluida}% do plano concluído, ${agg.pctAndamento}% em execução" — conta a história antes de qualquer detalhe técnico.`,
+    `<b>Feche com um pedido claro.</b> Aproveite a seção de atrasadas/remarcadas para pedir explicitamente à diretoria o que precisa: aprovação de orçamento, priorização de fornecedor ou validação formal das novas datas.`,
+    `<b>Traga as próximas entregas como roadmap.</b> As 3 ações mais próximas do vencimento são: ${proximasEntregas || 'nenhuma ação em andamento com data definida'}. Um slide de "próximos 90 dias" dá senso de ritmo contínuo.`,
+    `<b>Humanize um resultado já entregue.</b> Escolha uma ação concluída (ex: Colibri x Omie, Gestor de Canais) e traduza o ganho em uma frase simples — horas economizadas, erro reduzido, ou receita destravada — em vez de só "Concluída".`,
+    `<b>Use o Hotel Privê como case piloto.</b> Com 10 das 29 ações, é a unidade com mais maturidade em automação de TI — pode ser posicionado como modelo replicável para as demais unidades do grupo.`,
+    `<b>Se possível, ilustre com 1-2 telas reais</b> dos sistemas implantados (ex: check-in online, integração Colibri x Omie) — para diretoria não-técnica, uma captura de tela vale mais que uma linha na tabela.`,
+  ];
+  document.getElementById('suggestionsList').innerHTML = suggestions.map((t,i)=>`<div class="insight"><div class="n">${String(i+1).padStart(2,'0')}</div><div class="t">${t}</div></div>`).join('');
+}
+
+// ===== Orchestration =====
+function renderAll(){
+  const agg = computeAggregates();
+  renderHero(agg);
+  renderGauge(agg);
+  renderAlert(agg);
+  renderKPIs(agg);
+  renderCharts(agg);
+  renderRiskList(agg);
+  renderTable();
+  renderInsights(agg);
+  renderSuggestions(agg);
+}
+
+document.getElementById('nav-date').textContent = 'Ref. 04/08/2026';
+renderAll();
 </script>
 </body>
 </html>
